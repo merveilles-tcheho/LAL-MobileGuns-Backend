@@ -48,7 +48,7 @@ public class Inventory {
 
 	// ── Relation inverse vers ParcLoge
 
-	@JsonIgnore
+	
 	@OneToMany(mappedBy = "inventory", fetch = FetchType.LAZY)
 	private List<ParcLoge> parcLoges;
 

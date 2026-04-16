@@ -12,6 +12,7 @@ import com.nlmk.LAL.MobileGuns.entity.RowId;
 @Repository
 public interface RowRepository extends JpaRepository<Row, RowId> {
 
-    // Toutes les loges d'un parc
+    // Toutes les loges d'un parc : 
+	
     List<Row> findByIdYard(String yard);
 }

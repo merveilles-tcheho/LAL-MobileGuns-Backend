@@ -22,51 +22,57 @@ public class IdentificationServiceImpl implements IdentificationService {
     private PostOderRepository postOderRepository;  
 
     @Override
-    public IdentificationDTO identifier(String coilId) {
+    public IdentificationDTO identifier(
+            String typeId, String coilId, String coupeId) {
 
-        // Chercher la bobine dans Oracle
-        Optional<Coil> result = coilRepository.findByCoilId(coilId);
+        // Chercher par les 3 champs
+        Optional<Coil> result = coilRepository
+            .findByTypeIdAndCoilIdAndCoupeId(
+                typeId, coilId, coupeId
+            );
 
-        // Règle 1 — bobine introuvable
         if (result.isEmpty()) {
             throw new ResourceNotFoundException(
-                "Bobine introuvable : " + coilId);
+                "Bobine introuvable : " +
+                typeId + "/" + coilId + "/" + coupeId
+            );
         }
 
         Coil coil = result.get();
         IdentificationDTO dto = new IdentificationDTO();
 
-        // Données de base
         dto.setCoilSq(coil.getCoilSq());
         dto.setCoilId(coil.getCoilId());
         dto.setCoupeId(coil.getCoupeId());
         dto.setTypeId(coil.getTypeId());
-        dto.setParc(coil.getYard() != null ? coil.getYard().getYard() : null);
-        dto.setLoge(coil.getLoge() != null ? coil.getLoge().getId().getRow() : null);
+        dto.setParc(coil.getYard() != null ?
+            coil.getYard().getYard() : null);
+        dto.setLoge(coil.getLoge() != null ?
+            coil.getLoge().getId().getRow() : null);
         dto.setEpaisseur(coil.getThickness());
         dto.setLargeur(coil.getWidth());
         dto.setPoidsNet(coil.getWeightNt());
         dto.setPackagingDt(coil.getPackagingDt());
+        dto.setPackagingStrDt(coil.getPackagingStrDt());
         dto.setOrderSq(coil.getOrderSq());
         dto.setPosteCde(coil.getPosteCde());
         dto.setQuality(coil.getQuality());
         dto.setChoice(coil.getChoice());
 
-        // Règle 2 — alerte SOLDÉ
+        // ✅ CHAUD : typeId = 4 ou 6
+        // ✅ FROID : typeId = 1, 2, 8, 9
+        String t = typeId.trim();
+        boolean isChaud = t.equals("4") || t.equals("6");
+        dto.setTemperature(isChaud ? "CHAUD" : "FROID");
+
+        // Soldé
         dto.setSolde(coil.getSoldeDt() != null);
-        dto.setSoldeDt(
-            coil.getSoldeDt() != null ? coil.getSoldeDt().toString() : null
-        );
+        dto.setSoldeDt(coil.getSoldeDt() != null ?
+            coil.getSoldeDt().toString() : null);
 
-        // Règle 3 — chaud ou froid
-        String typeId = coil.getTypeId();
-        if (typeId != null && !typeId.isEmpty()) {
-            char c = typeId.charAt(0);
-            dto.setTemperature(c >= 'A' && c <= 'Z' ? "CHAUD" : "FROID");
-        }
-
-        // Vue V011POSTE_COMMANDE — commande et gamme
-        if (coil.getOrderSq() != null && coil.getPosteCde() != null) {
+        // Commande et gamme
+        if (coil.getOrderSq() != null &&
+            coil.getPosteCde() != null) {
             Optional<PostOder> posteCmd = postOderRepository
                 .findByIdCommandeSqAndIdPosteCde(
                     coil.getOrderSq(),
@@ -80,6 +86,4 @@ public class IdentificationServiceImpl implements IdentificationService {
 
         return dto;
     }
-}
-
-
+    }

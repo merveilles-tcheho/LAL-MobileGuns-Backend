@@ -12,20 +12,20 @@ import com.nlmk.LAL.MobileGuns.service.IdentificationService;
 
 @RestController
 @RequestMapping("/api/identification")
-
 public class IdentificationController {
-	
 
-	 @Autowired
-	    private IdentificationService identificationService;
+    @Autowired
+    private IdentificationService identificationService;
 
-	    @GetMapping("/{coilId}")
-	    public ResponseEntity<IdentificationDTO> identifier(
-	            @PathVariable String coilId) {
+    // ── Endpoint avec les 3 champs ─────────────────
+    @GetMapping("/{typeId}/{coilId}/{coupeId}")
+    public ResponseEntity<IdentificationDTO> identifier(
+            @PathVariable String typeId,
+            @PathVariable String coilId,
+            @PathVariable String coupeId) {
 
-	        IdentificationDTO dto = identificationService.identifier(coilId);
-	        return ResponseEntity.ok(dto);
-	    }
-	}
-
-
+        IdentificationDTO dto = identificationService
+            .identifier(typeId, coilId, coupeId);
+        return ResponseEntity.ok(dto);
+    }
+}

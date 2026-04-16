@@ -15,8 +15,14 @@ import jakarta.transaction.Transactional;
 @Repository
 public interface CoilRepository extends JpaRepository<Coil, Integer> {
 
-    // Trouver une bobine par son code
-    Optional<Coil> findByCoilId(String coilId);
+    
+	//  Trouver une bobine par typeId + coilId + coupeId
+	
+	Optional<Coil> findByTypeIdAndCoilIdAndCoupeId(
+	    String typeId,
+	    String coilId,
+	    String coupeId
+	);
 
     // Compter bobines sur une position (R5)
     @Query(value = "SELECT COUNT(*) FROM UGFAB.T001COILS " +

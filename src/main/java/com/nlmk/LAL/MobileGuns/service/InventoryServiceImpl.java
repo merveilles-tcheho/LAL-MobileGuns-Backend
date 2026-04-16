@@ -1,5 +1,6 @@
 package com.nlmk.LAL.MobileGuns.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -13,6 +14,7 @@ import com.nlmk.LAL.MobileGuns.dto.InventoryScanResponseDTO;
 import com.nlmk.LAL.MobileGuns.dto.YardRowDTO;
 import com.nlmk.LAL.MobileGuns.entity.Coil;
 import com.nlmk.LAL.MobileGuns.entity.CoilInventory;
+import com.nlmk.LAL.MobileGuns.entity.CoilInventoryId;
 import com.nlmk.LAL.MobileGuns.entity.Inventory;
 import com.nlmk.LAL.MobileGuns.entity.ParcLoge;
 import com.nlmk.LAL.MobileGuns.entity.PostOder;
@@ -24,251 +26,250 @@ import com.nlmk.LAL.MobileGuns.repository.InventoryRepository;
 import com.nlmk.LAL.MobileGuns.repository.PostOderRepository;
 import com.nlmk.LAL.MobileGuns.repository.YardRowRepository;
 import com.nlmk.LAL.MobileGuns.tools.MyTools;
-
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 
 @Service
 public class InventoryServiceImpl implements InventoryService {
 
-    @Autowired
-    private InventoryRepository inventoryRepository;
+	@Autowired
+	private InventoryRepository inventoryRepository;
 
-    @Autowired
-    private YardRowRepository yardRowRepository;
+	@Autowired
+	private YardRowRepository yardRowRepository;
 
-    @Autowired
-    private CoilRepository coilRepository;
+	@Autowired
+	private CoilRepository coilRepository;
 
-    @Autowired
-    private CoilInventoryRepository coilInventoryRepository;
+	@Autowired
+	private CoilInventoryRepository coilInventoryRepository;
 
-    @Autowired
-    private PostOderRepository postOderRepository;
+	@Autowired
+	private PostOderRepository postOderRepository;
 
-    @PersistenceContext
-    private EntityManager entityManager;
+	
 
-    // ── Étape 1 — Liste inventaires ouverts ───────────────────
-    @Override
-    public List<InventoryDTO> getInventairesOuverts() {
+	// ── Étape 1 — Liste inventaires ouverts
 
-        List<Inventory> inventaires = inventoryRepository
-            .findByClotureDtIsNull();
+	@Override
+	public List<InventoryDTO> getInventairesOuverts() {
 
-        return inventaires.stream().map(inv -> {
-            InventoryDTO dto = new InventoryDTO();
-            dto.setNumeroInv(inv.getNumeroInv());
-            dto.setRemark(inv.getRemark());
-            return dto;
-        }).collect(Collectors.toList());
-    }
+		List<Inventory> inventaires = inventoryRepository.findByClotureDtIsNull();
 
-    // ── Étape 2 — Parcs d'un inventaire ───────────────────────
-    @Override
-    public List<YardRowDTO> getParcLoges(Integer numeroInv) {
+		return inventaires.stream().map(inv -> {
+			InventoryDTO dto = new InventoryDTO();
+			dto.setNumeroInv(inv.getNumeroInv());
+			dto.setRemark(inv.getRemark());
+			return dto;
+		}).collect(Collectors.toList());
+	}
 
-        List<ParcLoge> parcLoges = yardRowRepository
-            .findByIdNumeroInv(numeroInv);
+	// ── Étape 2 — Parcs d'un inventaire
 
-        if (parcLoges.isEmpty()) {
-            throw new ResourceNotFoundException(
-                "Aucun parc trouvé pour l'inventaire : "
-                + numeroInv);
-        }
+	@Override
+	public List<YardRowDTO> getParcLoges(Integer numeroInv) {
 
-        return parcLoges.stream().map(pl -> {
-            YardRowDTO dto = new YardRowDTO();
-            dto.setYard(pl.getId().getYard());
-            dto.setRow(pl.getId().getRow());
-            return dto;
-        }).collect(Collectors.toList());
-    }
+		List<ParcLoge> parcLoges = yardRowRepository.findByIdNumeroInv(numeroInv);
 
-    // ── Étape 3 — Scanner une bobine ──────────────────────────
-    @Override
-    @Transactional
-    public InventoryScanResponseDTO scannerBobine(
-            InventoryScanRequestDTO request) {
+		if (parcLoges.isEmpty()) {
+			throw new ResourceNotFoundException("Aucun parc trouvé pour l'inventaire : " + numeroInv);
+		}
 
-        InventoryScanResponseDTO response =
-            new InventoryScanResponseDTO();
+		return parcLoges.stream().map(pl -> {
+			YardRowDTO dto = new YardRowDTO();
+			dto.setYard(pl.getId().getYard());
+			dto.setRow(pl.getId().getRow());
+			return dto;
+		}).collect(Collectors.toList());
+	}
 
-        // ── Vérifier bobine existe dans T001COILS ─────────────
-        Optional<Coil> coilOpt = coilRepository
-            .findById(request.getCoilSq());
+	// ── Étape 3 — Scanner une bobine
 
-        if (coilOpt.isEmpty()) {
-            throw new ResourceNotFoundException(
-                "Bobine introuvable : " + request.getCoilSq());
-        }
+	@Override
+	@Transactional
+	public InventoryScanResponseDTO scannerBobine(InventoryScanRequestDTO request) {
 
-        Coil coil = coilOpt.get();
+		InventoryScanResponseDTO response = new InventoryScanResponseDTO();
 
-        // ── Vérifier inventaire existe et est ouvert ──────────
-        Optional<Inventory> invOpt = inventoryRepository
-            .findById(request.getNumeroInv());
+		// ── Vérifier bobine existe dans T001COILS
 
-        if (invOpt.isEmpty() ||
-            invOpt.get().getClotureDt() != null) {
-            throw new BusinessException(
-                "Inventaire introuvable ou clôturé : "
-                + request.getNumeroInv());
-        }
+		Optional<Coil> coilOpt = coilRepository.findById(request.getCoilSq());
 
-        // ── Vérifier loge dans T072PARCS_LOGES_INVENTAIRE ─────
-        List<ParcLoge> parcLoges = yardRowRepository
-            .findByIdNumeroInvAndIdYard(
-                request.getNumeroInv(),
-                request.getParcInv()
-            );
+		if (coilOpt.isEmpty()) {
+			throw new ResourceNotFoundException("Bobine introuvable : " + request.getCoilSq());
+		}
 
-        boolean logeExiste = parcLoges.stream()
-            .anyMatch(pl -> pl.getId().getRow()
-                .equals(request.getLogeInv()));
+		Coil coil = coilOpt.get();
 
-        if (!logeExiste) {
-            throw new BusinessException(
-                "Loge non trouvée dans l'inventaire : "
-                + request.getLogeInv());
-        }
+		// ── Vérifier inventaire existe et est ouvert
 
-        // ── Vérifier si bobine déjà scannée ───────────────────
-        boolean dejaScanne = coilInventoryRepository
-            .existsByIdCoilSqAndIdNumeroInv(
-                request.getCoilSq(),
-                request.getNumeroInv()
-            );
+		Optional<Inventory> invOpt = inventoryRepository.findById(request.getNumeroInv());
 
-        // ── Compter bobines déjà dans la loge ─────────────────
-        List<CoilInventory> coilsInv = coilInventoryRepository
-            .findByIdNumeroInv(request.getNumeroInv())
-            .stream()
-            .filter(ci ->
-                request.getParcInv().equals(ci.getYard()) &&
-                request.getLogeInv().equals(ci.getRow()))
-            .collect(Collectors.toList());
+		if (invOpt.isEmpty() || invOpt.get().getClotureDt() != null) {
+			throw new BusinessException("Inventaire introuvable ou clôturé : " + request.getNumeroInv());
+		}
 
-        int nbCoils = coilsInv.size();
+		// ── Vérifier loge dans T072PARCS_LOGES_INVENTAIRE ─────
+		List<ParcLoge> parcLoges = yardRowRepository.findByIdNumeroInvAndIdYard(request.getNumeroInv(),
+				request.getParcInv());
 
-        // ── INSERT ou UPDATE T071COILS_INVENTAIRE ──────────────
-        if (dejaScanne) {
-            updateCoilInventory(coil, request);
-            MyTools.logInfo("Inventaire — UPDATE bobine : "
-                + coil.getCoilId());
-        } else {
-            insertCoilInventory(coil, request);
-            nbCoils++;
-            MyTools.logInfo("Inventaire — INSERT bobine : "
-                + coil.getCoilId());
-        }
+		boolean logeExiste = parcLoges.stream().anyMatch(pl -> pl.getId().getRow().equals(request.getLogeInv()));
 
-        // ── Réponse ────────────────────────────────────────────
-        response.setSucces(true);
-        response.setMessage(dejaScanne ?
-            "Bobine mise à jour" : "Bobine scannée avec succès");
-        response.setDejaScanne(dejaScanne);
-        response.setNbCoilsInv(nbCoils);
-        response.setCoilId(coil.getCoilId());
-        response.setYard(request.getParcInv());
-        response.setRow(request.getLogeInv());
-        response.setPosition(request.getPosition());
-        response.setLevel(request.getLevel());
+		if (!logeExiste) {
+			throw new BusinessException("Loge non trouvée dans l'inventaire : " + request.getLogeInv());
+		}
 
-        return response;
-    }
+		// ── Vérifier si bobine déjà scannée
 
-    // ── Méthode privée — INSERT T071COILS_INVENTAIRE ──────────
-    private void insertCoilInventory(Coil coil,
-            InventoryScanRequestDTO request) {
+		boolean dejaScanne = coilInventoryRepository.existsByIdCoilSqAndIdNumeroInv(request.getCoilSq(),
+				request.getNumeroInv());
 
-        String gamme    = null;
-        String commande = null;
+		// ── Compter bobines déjà dans la loge
 
-        if (coil.getOrderSq() != null &&
-            coil.getPosteCde() != null) {
+		List<CoilInventory> coilsInv = coilInventoryRepository.findByIdNumeroInv(request.getNumeroInv()).stream()
+				.filter(ci -> request.getParcInv().equals(ci.getYard()) && request.getLogeInv().equals(ci.getRow()))
+				.collect(Collectors.toList());
 
-            Optional<PostOder> posteCmd = postOderRepository
-                .findByIdCommandeSqAndIdPosteCde(
-                    coil.getOrderSq(),
-                    coil.getPosteCde()
-                );
+		int nbCoils = coilsInv.size();
 
-            if (posteCmd.isPresent()) {
-                gamme    = posteCmd.get().getGamme();
-                commande = posteCmd.get().getCommande();
-            }
-        }
+		// ── INSERT ou UPDATE T071COILS_INVENTAIRE
 
-        String parcInf = coil.getYard() != null ?
-            coil.getYard().getYard() : null;
-        String logeInf = coil.getLoge() != null ?
-            coil.getLoge().getId().getRow() : null;
+		if (dejaScanne) {
+			updateCoilInventory(coil, request);
+			MyTools.logInfo("Inventaire — UPDATE bobine : " + coil.getCoilId());
+		} else {
+			insertCoilInventory(coil, request);
+			nbCoils++;
+			MyTools.logInfo("Inventaire — INSERT bobine : " + coil.getCoilId());
+		}
 
-        entityManager.createNativeQuery(
-            "INSERT INTO UGFAB.T071COILS_INVENTAIRE " +
-            "(CNUMERO_INV, CPARC, CLOGE, CNIVEAU, CPOSITION, " +
-            "CSCAN_DT, CPARC_INF, CLOGE_INF, " +
-            "CNIVEAU_INF, CPOSITION_INF, " +
-            "CCOIL_SQ, CCOMMANDE_SQ, CPOSTE_CDE, " +
-            "CREMARQUE, CQUALITE, CLARGEUR, CEPAISSEUR, " +
-            "CPOIDS, CCHOIX, CINSERT_DT, CINSERT_NM, " +
-            "CUPDATE_DT, CUPDATE_NM, CFONCTION_NM, " +
-            "CGAMME, CCOMMANDE, CPRODUCTION_DT) " +
-            "VALUES (:numeroInv, :parc, :loge, :niveau, " +
-            ":position, SYSDATE, :parcInf, :logeInf, " +
-            ":niveauInf, :positionInf, " +
-            ":coilSq, :commandeSq, :posteCde, " +
-            ":remarque, :qualite, :largeur, :epaisseur, " +
-            ":poids, :choix, SYSDATE, 'SCAN_INVENTAIRE', " +
-            "SYSDATE, 'SCAN_INVENTAIRE', '', " +
-            ":gamme, :commande, :productionDt)")
-            .setParameter("numeroInv",    request.getNumeroInv())
-            .setParameter("parc",         request.getParcInv())
-            .setParameter("loge",         request.getLogeInv())
-            .setParameter("niveau",       request.getLevel())
-            .setParameter("position",     request.getPosition())
-            .setParameter("parcInf",      parcInf)
-            .setParameter("logeInf",      logeInf)
-            .setParameter("niveauInf",    request.getLevel())
-            .setParameter("positionInf",  request.getPosition())
-            .setParameter("coilSq",       coil.getCoilSq())
-            .setParameter("commandeSq",   coil.getOrderSq())
-            .setParameter("posteCde",     coil.getPosteCde())
-            .setParameter("remarque",     coil.getRemark())
-            .setParameter("qualite",      coil.getQuality())
-            .setParameter("largeur",      coil.getWidth())
-            .setParameter("epaisseur",    coil.getThickness())
-            .setParameter("poids",        coil.getWeightNt())
-            .setParameter("choix",        coil.getChoice())
-            .setParameter("gamme",        gamme)
-            .setParameter("commande",     commande)
-            .setParameter("productionDt", coil.getProductionDt())
-            .executeUpdate();
-    }
+		// ── Réponse
 
-    // ── Méthode privée — UPDATE T071COILS_INVENTAIRE ──────────
-    private void updateCoilInventory(Coil coil,
-            InventoryScanRequestDTO request) {
+		response.setSucces(true);
+		response.setMessage(dejaScanne ? "Bobine mise à jour" : "Bobine scannée avec succès");
+		response.setDejaScanne(dejaScanne);
+		response.setNbCoilsInv(nbCoils);
+		response.setCoilId(coil.getCoilId());
+		response.setYard(request.getParcInv());
+		response.setRow(request.getLogeInv());
+		response.setPosition(request.getPosition());
+		response.setLevel(request.getLevel());
 
-        entityManager.createNativeQuery(
-            "UPDATE UGFAB.T071COILS_INVENTAIRE " +
-            "SET CPARC = :parc, " +
-            "CLOGE = :loge, " +
-            "CPOSITION = :position, " +
-            "CNIVEAU = :niveau, " +
-            "CSCAN_DT = SYSDATE, " +
-            "CUPDATE_DT = SYSDATE, " +
-            "CUPDATE_NM = 'SCAN_INVENTAIRE' " +
-            "WHERE CNUMERO_INV = :numeroInv " +
-            "AND CCOIL_SQ = :coilSq")
-            .setParameter("parc",      request.getParcInv())
-            .setParameter("loge",      request.getLogeInv())
-            .setParameter("position",  request.getPosition())
-            .setParameter("niveau",    request.getLevel())
-            .setParameter("numeroInv", request.getNumeroInv())
-            .setParameter("coilSq",    coil.getCoilSq())
-            .executeUpdate();
-    }
-}
+		return response;
+	}
+	// ── Méthode privée — INSERT T071COILS_INVENTAIRE ──────────
+	
+	private void insertCoilInventory(Coil coil,
+	        InventoryScanRequestDTO request) {
+
+	    // Récupérer gamme et commande via vue
+		
+	    String gamme    = null;
+	    String commande = null;
+
+	    if (coil.getOrderSq() != null &&
+	        coil.getPosteCde() != null) {
+
+	        Optional<PostOder> posteCmd = postOderRepository
+	            .findByIdCommandeSqAndIdPosteCde(
+	                coil.getOrderSq(),
+	                coil.getPosteCde()
+	            );
+
+	        if (posteCmd.isPresent()) {
+	            gamme    = posteCmd.get().getGamme();
+	            commande = posteCmd.get().getCommande();
+	        }
+	    }
+
+	    // Position actuelle de la bobine
+	    
+	    String parcInf = coil.getYard() != null ?
+	        coil.getYard().getYard() : null;
+	    String logeInf = coil.getLoge() != null ?
+	        coil.getLoge().getId().getRow() : null;
+
+	    // Créer l'entité
+	    
+	    CoilInventory ci = new CoilInventory();
+
+	    // Clé composée
+	    CoilInventoryId id = new CoilInventoryId();
+	    id.setCoilSq(coil.getCoilSq());
+	    id.setNumeroInv(request.getNumeroInv());
+	    ci.setId(id);
+
+	    // Position scannée
+	    ci.setYard(request.getParcInv());
+	    ci.setRow(request.getLogeInv());
+	    ci.setLevel(request.getLevel());
+	    ci.setPosition(request.getPosition());
+
+	    // Position originale
+	    ci.setParcInf(parcInf);
+	    ci.setLogeInf(logeInf);
+	    ci.setNiveauInf(request.getLevel());
+	    ci.setPositionInf(request.getPosition());
+
+	    // Infos bobine
+	    ci.setCommandeSq(coil.getOrderSq());
+	    ci.setPosteCde(coil.getPosteCde());
+	    ci.setRemarque(coil.getRemark());
+	    ci.setQualite(coil.getQuality());
+	    ci.setLargeur(coil.getWidth());
+	    ci.setEpaisseur(coil.getThickness());
+	    ci.setPoids(coil.getWeightNt());
+	    ci.setChoix(coil.getChoice());
+	    ci.setProductionDt(coil.getProductionDt());
+
+	    // Gamme et commande
+	    ci.setGamme(gamme);
+	    ci.setCommande(commande);
+
+	    // Dates et audit
+	    ci.setScanDt(LocalDateTime.now());
+	    ci.setInsertDt(LocalDateTime.now());
+	    ci.setInsertNm("SCAN_INVENTAIRE");
+	    ci.setUpdateDt(LocalDateTime.now());
+	    ci.setUpdateNm("SCAN_INVENTAIRE");
+	    ci.setFunctionNm("SCAN_INVENTAIRE");
+
+	    // Sauvegarder
+	    coilInventoryRepository.save(ci);
+
+	    MyTools.logInfo("Inventaire — INSERT bobine : "
+	        + coil.getCoilId());
+	}
+
+	// ── Méthode privée — UPDATE T071COILS_INVENTAIRE
+	
+	private void updateCoilInventory(Coil coil,
+	        InventoryScanRequestDTO request) {
+
+	    // Récupérer l'entité existante
+	    CoilInventoryId id = new CoilInventoryId();
+	    id.setCoilSq(coil.getCoilSq());
+	    id.setNumeroInv(request.getNumeroInv());
+
+	    CoilInventory ci = coilInventoryRepository
+	        .findById(id)
+	        .orElseThrow(() -> new ResourceNotFoundException(
+	            "CoilInventory introuvable"));
+
+	    // Mettre à jour la position
+	    ci.setYard(request.getParcInv());
+	    ci.setRow(request.getLogeInv());
+	    ci.setLevel(request.getLevel());
+	    ci.setPosition(request.getPosition());
+	    ci.setScanDt(LocalDateTime.now());
+	    ci.setUpdateDt(LocalDateTime.now());
+	    ci.setUpdateNm("SCAN_INVENTAIRE");
+	    ci.setFunctionNm("SCAN_INVENTAIRE");
+
+	    // Sauvegarder
+	    coilInventoryRepository.save(ci);
+
+	    MyTools.logInfo("Inventaire — UPDATE bobine : "
+	        + coil.getCoilId());
+	}
+
+	}

@@ -3,8 +3,6 @@ package com.nlmk.LAL.MobileGuns.entity;
 import java.time.LocalDate;
 import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -47,7 +45,7 @@ public class Mission {
 	private String functionNm;
 
 	// ── Relation inverse vers CoilMission ──────────
-	@JsonIgnore
+
 	@OneToMany(mappedBy = "mission", fetch = FetchType.LAZY)
 	private List<CoilMission> coilMissions;
 }

@@ -21,38 +21,36 @@ import com.nlmk.LAL.MobileGuns.service.InventoryService;
 @RequestMapping("/api/inventory")
 public class InventoryController {
 
-    @Autowired
-    private InventoryService inventoryService;
+	@Autowired
+	private InventoryService inventoryService;
 
-    // ── GET — Liste inventaires ouverts ───────────────────────
-    @GetMapping
-    public ResponseEntity<List<InventoryDTO>> getInventairesOuverts() {
+	// ── GET — Liste inventaires ouverts
 
-        List<InventoryDTO> inventaires =
-            inventoryService.getInventairesOuverts();
+	@GetMapping
+	public ResponseEntity<List<InventoryDTO>> getInventairesOuverts() {
 
-        return ResponseEntity.ok(inventaires);
-    }
+		List<InventoryDTO> inventaires = inventoryService.getInventairesOuverts();
 
-    // ── GET — Parcs d'un inventaire ───────────────────────────
-    @GetMapping("/{numeroInv}/parcloges")
-    public ResponseEntity<List<YardRowDTO>> getParcLoges(
-            @PathVariable Integer numeroInv) {
+		return ResponseEntity.ok(inventaires);
+	}
 
-        List<YardRowDTO> parcLoges =
-            inventoryService.getParcLoges(numeroInv);
+	// ── GET — Parcs d'un inventaire
 
-        return ResponseEntity.ok(parcLoges);
-    }
+	@GetMapping("/{numeroInv}/parcloges")
+	public ResponseEntity<List<YardRowDTO>> getParcLoges(@PathVariable Integer numeroInv) {
 
-    // ── POST — Scanner une bobine ──────────────────────────────
-    @PostMapping("/scan")
-    public ResponseEntity<InventoryScanResponseDTO> scannerBobine(
-            @RequestBody InventoryScanRequestDTO request) {
+		List<YardRowDTO> parcLoges = inventoryService.getParcLoges(numeroInv);
 
-        InventoryScanResponseDTO response =
-            inventoryService.scannerBobine(request);
+		return ResponseEntity.ok(parcLoges);
+	}
 
-        return ResponseEntity.ok(response);
-    }
+	// ── POST — Scanner une bobine
+
+	@PostMapping("/scan")
+	public ResponseEntity<InventoryScanResponseDTO> scannerBobine(@RequestBody InventoryScanRequestDTO request) {
+
+		InventoryScanResponseDTO response = inventoryService.scannerBobine(request);
+
+		return ResponseEntity.ok(response);
+	}
 }

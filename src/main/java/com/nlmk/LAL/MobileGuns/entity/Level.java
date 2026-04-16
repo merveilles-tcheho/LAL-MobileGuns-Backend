@@ -3,8 +3,6 @@ package com.nlmk.LAL.MobileGuns.entity;
 import java.time.LocalDate;
 import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
@@ -46,7 +44,7 @@ public class Level {
 
 	// ── Relation inverse vers Position
 
-	@JsonIgnore
+	
 	@OneToMany(mappedBy = "level", fetch = FetchType.LAZY)
 	private List<Position> positions;
 

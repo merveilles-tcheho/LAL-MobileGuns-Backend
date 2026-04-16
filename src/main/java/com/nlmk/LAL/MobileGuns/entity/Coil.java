@@ -7,8 +7,6 @@ import java.util.List;
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -106,7 +104,7 @@ public class Coil {
 	private Row loge;
 
 	// Relation vers CoilMission :
-	@JsonIgnore
+	
 	@OneToMany(mappedBy = "coil", fetch = FetchType.LAZY)
 	private List<CoilMission> coilMissions;
 

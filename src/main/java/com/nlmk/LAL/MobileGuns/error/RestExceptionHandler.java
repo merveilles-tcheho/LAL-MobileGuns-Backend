@@ -27,7 +27,8 @@ public class RestExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
-    // ── Erreur métier → 400 ────────────────────────
+    // ── Erreur métier → 400 
+    
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Map<String, String>> handleBusiness(
             BusinessException ex) {
@@ -41,7 +42,8 @@ public class RestExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // ── Toutes les autres erreurs → 500 ───────────
+    // ── Toutes les autres erreurs → 500 
+    
     
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleAllExceptions(

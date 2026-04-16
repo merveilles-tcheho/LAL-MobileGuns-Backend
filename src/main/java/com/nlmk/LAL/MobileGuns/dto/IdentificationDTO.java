@@ -27,6 +27,7 @@ public class IdentificationDTO {
 	    private String choice;
 
 	    private LocalDate packagingDt;
+	    private LocalDate packagingStrDt; 
 
 	    private boolean solde;
 	    private String soldeDt;
