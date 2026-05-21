@@ -15,7 +15,7 @@ public interface InventoryService {
 
     // Parcs d'un inventaire
     
-    List<YardRowDTO> getParcLoges(Integer numeroInv);
+    List<YardRowDTO> getParcLoges(String  numeroInv);
 
     // Scanner une bobine
     

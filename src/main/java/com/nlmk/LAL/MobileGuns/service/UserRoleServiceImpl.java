@@ -11,13 +11,13 @@ import java.util.List;
 import javax.sql.DataSource;
 import javax.sql.rowset.serial.SQLInputImpl;
 
+import oracle.jdbc.OracleTypes;
+//import org.hibernate.dialect.OracleTypes;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.nlmk.LAL.MobileGuns.entity.Role;
 import com.nlmk.LAL.MobileGuns.tools.MyTools;
-
-import oracle.jdbc.OracleTypes;
 
 @Service
 public class UserRoleServiceImpl implements UserRoleService {
@@ -40,7 +40,7 @@ public class UserRoleServiceImpl implements UserRoleService {
 			stm.registerOutParameter(1, OracleTypes.ARRAY, "UTILITIES.TYP_TABLE_USER_GROUPS");
 
 			stm.setString(2, userId);
-			stm.setString(3, "GESFAB_WEB");
+			stm.setString(3, "GUN_LAL");
 
 			stm.execute();
 

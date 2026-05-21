@@ -8,7 +8,7 @@ import org.springframework.stereotype.Repository;
 import com.nlmk.LAL.MobileGuns.entity.Inventory;
 
 @Repository
-public interface InventoryRepository extends JpaRepository<Inventory, Integer> {
+public interface InventoryRepository extends JpaRepository<Inventory, String> {
 
 	// Inventaires ouverts — pas encore clôturés
 	List<Inventory> findByClotureDtIsNull();

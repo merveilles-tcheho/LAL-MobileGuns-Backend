@@ -20,7 +20,7 @@ public class Inventory {
 
 	@Id
 	@Column(name = "CNUMERO_INV")
-	private Integer numeroInv;
+	private String numeroInv;
 
 	@Column(name = "CREMARQUE")
 	private String remark;

@@ -7,7 +7,7 @@ public class InventoryDTO {
 
 
 
-    private Integer numeroInv;
+    private String numeroInv;
     private String remark;
 }
 

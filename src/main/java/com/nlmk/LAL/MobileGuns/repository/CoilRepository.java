@@ -67,6 +67,8 @@ public interface CoilRepository extends JpaRepository<Coil, Integer> {
                    "CENLEVEMENT_SQ = null, " +
                    "CEXPEDITION_DT = null, " +
                    "CSTOCK = null, " +
+                   "CMVTSTOCK_DT = null, " +
+                   "CRECEPTION_DT = null, " +
                    "CUPDATE_DT = SYSDATE, " +
                    "CUPDATE_NM = 'SCAN_ENLOGEMENT', " +
                    "CFONCTION_NM = 'VERIF_POSITION' " +
@@ -77,7 +79,6 @@ public interface CoilRepository extends JpaRepository<Coil, Integer> {
                                  @Param("loge") String loge,
                                  @Param("position") String position,
                                  @Param("niveau") String niveau);
-
     // UPDATE invalider bobines existantes (R5)
     @Modifying
     @Transactional

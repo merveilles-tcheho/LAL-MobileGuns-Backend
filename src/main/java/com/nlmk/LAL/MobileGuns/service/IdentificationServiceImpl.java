@@ -1,5 +1,6 @@
 package com.nlmk.LAL.MobileGuns.service;
 
+import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,29 +14,28 @@ import com.nlmk.LAL.MobileGuns.repository.CoilRepository;
 import com.nlmk.LAL.MobileGuns.repository.PostOderRepository;
 
 @Service
-public class IdentificationServiceImpl implements IdentificationService {
+public class IdentificationServiceImpl
+        implements IdentificationService {
 
     @Autowired
     private CoilRepository coilRepository;
-
     @Autowired
-    private PostOderRepository postOderRepository;  
+    private PostOderRepository postOderRepository;
+
+    private static final DateTimeFormatter SDF = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     @Override
     public IdentificationDTO identifier(
             String typeId, String coilId, String coupeId) {
 
-        // Chercher par les 3 champs
         Optional<Coil> result = coilRepository
             .findByTypeIdAndCoilIdAndCoupeId(
-                typeId, coilId, coupeId
-            );
+                typeId, coilId, coupeId);
 
         if (result.isEmpty()) {
             throw new ResourceNotFoundException(
                 "Bobine introuvable : " +
-                typeId + "/" + coilId + "/" + coupeId
-            );
+                typeId + "/" + coilId + "/" + coupeId);
         }
 
         Coil coil = result.get();
@@ -52,23 +52,32 @@ public class IdentificationServiceImpl implements IdentificationService {
         dto.setEpaisseur(coil.getThickness());
         dto.setLargeur(coil.getWidth());
         dto.setPoidsNet(coil.getWeightNt());
-        dto.setPackagingDt(coil.getPackagingDt());
-        dto.setPackagingStrDt(coil.getPackagingStrDt());
+        dto.setPile(coil.getCpile());
+        dto.setClit(coil.getClit());
+
+        // Format DD/MM/YYYY pour packagingDt
+        dto.setPackagingDt(coil.getPackagingDt() != null ?
+            SDF.format(coil.getPackagingDt()) : null);
+
+        // Format DD/MM/YYYY pour packagingStrDt
+        dto.setPackagingStrDt(coil.getPackagingStrDt() != null ?
+            SDF.format(coil.getPackagingStrDt()) : null);
+
         dto.setOrderSq(coil.getOrderSq());
         dto.setPosteCde(coil.getPosteCde());
         dto.setQuality(coil.getQuality());
         dto.setChoice(coil.getChoice());
 
-        // ✅ CHAUD : typeId = 4 ou 6
-        // ✅ FROID : typeId = 1, 2, 8, 9
+        //  CHAUD : typeId = 4 ou 6
+        // FROID : typeId = 1, 2, 8, 9
         String t = typeId.trim();
         boolean isChaud = t.equals("4") || t.equals("6");
         dto.setTemperature(isChaud ? "CHAUD" : "FROID");
 
-        // Soldé
+        //  Format DD/MM/YYYY pour soldeDt
         dto.setSolde(coil.getSoldeDt() != null);
         dto.setSoldeDt(coil.getSoldeDt() != null ?
-            coil.getSoldeDt().toString() : null);
+            SDF.format(coil.getSoldeDt()) : null);
 
         // Commande et gamme
         if (coil.getOrderSq() != null &&
@@ -76,8 +85,7 @@ public class IdentificationServiceImpl implements IdentificationService {
             Optional<PostOder> posteCmd = postOderRepository
                 .findByIdCommandeSqAndIdPosteCde(
                     coil.getOrderSq(),
-                    coil.getPosteCde()
-                );
+                    coil.getPosteCde());
             if (posteCmd.isPresent()) {
                 dto.setCommande(posteCmd.get().getCommande());
                 dto.setGamme(posteCmd.get().getGamme());
@@ -86,4 +94,4 @@ public class IdentificationServiceImpl implements IdentificationService {
 
         return dto;
     }
-    }
+}

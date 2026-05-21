@@ -68,7 +68,7 @@ public class ApplicationController {
 	public ResponseEntity<?> login(@RequestBody User user) {
 
 		final String INVALID_USER_OR_PASSWORD = "Invalid user or password";
-		final String USER_NOT_ALLOWED = "User not allowed to use GESFAB Web";
+		final String USER_NOT_ALLOWED = "User not allowed to use GUN_LAL";
 
 		MyTools.logInfo("User : " + user.getUserId());
 

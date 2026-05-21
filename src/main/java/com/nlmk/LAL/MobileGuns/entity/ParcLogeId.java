@@ -11,7 +11,7 @@ public class ParcLogeId implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Column(name = "CNUMERO_INV")
-	private Integer numeroInv;
+	private String  numeroInv;
 
 	@Column(name = "CPARC")
 	private String yard;

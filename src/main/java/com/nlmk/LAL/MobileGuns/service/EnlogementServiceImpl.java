@@ -1,5 +1,6 @@
 package com.nlmk.LAL.MobileGuns.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -12,12 +13,14 @@ import com.nlmk.LAL.MobileGuns.dto.EnlogementResponseDTO;
 import com.nlmk.LAL.MobileGuns.entity.Coil;
 import com.nlmk.LAL.MobileGuns.entity.CoilMission;
 import com.nlmk.LAL.MobileGuns.entity.Mission;
+import com.nlmk.LAL.MobileGuns.entity.MovLog;
 import com.nlmk.LAL.MobileGuns.error.BusinessException;
 import com.nlmk.LAL.MobileGuns.error.ResourceNotFoundException;
 import com.nlmk.LAL.MobileGuns.repository.CoilInconnuRepository;
 import com.nlmk.LAL.MobileGuns.repository.CoilMissionRepository;
 import com.nlmk.LAL.MobileGuns.repository.CoilRepository;
 import com.nlmk.LAL.MobileGuns.repository.MissionRepository;
+import com.nlmk.LAL.MobileGuns.repository.MovLogRepository;
 import com.nlmk.LAL.MobileGuns.repository.RowRepository;
 import com.nlmk.LAL.MobileGuns.repository.TransactionRepository;
 import com.nlmk.LAL.MobileGuns.repository.YardRepository;
@@ -45,6 +48,8 @@ public class EnlogementServiceImpl implements EnlogementService {
     private CoilInconnuRepository coilInconnuRepository;
     @Autowired
     private TransactionRepository transactionRepository;
+    @Autowired
+    private MovLogRepository movLogRepository; 
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -60,6 +65,17 @@ public class EnlogementServiceImpl implements EnlogementService {
 
         EnlogementResponseDTO response = new EnlogementResponseDTO();
 
+        // ── Désactiver le trigger TRPSI02_A_U
+        try {
+            entityManager.createNativeQuery(
+                "BEGIN ugfab.PKG039_TRIGGER_EXECUTION." +
+                "DO_J001_Set_Execution_Flag('TRPSI02_A_U', FALSE); END;")
+                .executeUpdate();
+            MyTools.logInfo("Trigger TRPSI02_A_U désactivé");
+        } catch (Exception e) {
+            MyTools.logError("Erreur désactivation trigger", e);
+        }
+
         // ── Étape 1 — Vérifier bobine existe
         Optional<Coil> coilOpt = coilRepository.findById(request.getCoilSq());
         if (coilOpt.isEmpty()) {
@@ -67,6 +83,23 @@ public class EnlogementServiceImpl implements EnlogementService {
                 "Bobine introuvable : " + request.getCoilSq());
         }
         Coil coil = coilOpt.get();
+
+        // ──  Vérifier si bobine déjà déplacée (log)
+        List<MovLog> logs = movLogRepository
+            .findByCoilSqOrderByInsertDtDesc(request.getCoilSq());
+
+        if (!logs.isEmpty()) {
+            MovLog dernierLog = logs.get(0);
+            String from = dernierLog.getParcFrom() + "." +
+                          dernierLog.getLogeFrom();
+            String to   = dernierLog.getParcTo() + "." +
+                          dernierLog.getLogeTo();
+            response.setDejaDeplace(true);
+            response.setMessageAlerte(
+                "Attention cette bobine a déjà été déplacée " +
+                "(de " + from + " vers " + to + ")"
+            );
+        }
 
         // ── Étape 2 — Vérifier parc destination existe
         if (yardRepository.findById(request.getParcDestination()).isEmpty()) {
@@ -84,7 +117,17 @@ public class EnlogementServiceImpl implements EnlogementService {
                 "Loge introuvable : " + request.getLogeDestination());
         }
 
-        // ── Étape 3bis — Règle R2 : conditionnement
+        // ── Règle R7 — Même emplacement (parcs 1D uniquement)
+        if (PARCS_1D.contains(request.getParcIni()) &&
+            coil.getYard() != null &&
+            coil.getYard().getYard().equals(request.getParcDestination()) &&
+            coil.getLoge() != null &&
+            coil.getLoge().getId().getRow().equals(request.getLogeDestination())) {
+            throw new BusinessException(
+                "Bobine déjà à cet emplacement !");
+        }
+
+        // ── Étape 3bis — Règle R4 : conditionnement
         gererConditionnement(coil, request);
 
         // ── Étape 4 — Règle R3 : bypass position/niveau
@@ -108,7 +151,6 @@ public class EnlogementServiceImpl implements EnlogementService {
                     request.getParcDestination());
             }
 
-            // Vérifier position existe dans T913POSITION
             Number positionCount = (Number) entityManager
                 .createNativeQuery(
                     "SELECT COUNT(*) FROM UGFAB.T913POSITION " +
@@ -125,7 +167,6 @@ public class EnlogementServiceImpl implements EnlogementService {
                     "Position introuvable : " + position);
             }
 
-            // Vérifier niveau existe dans T912NIVEAU
             Number niveauCount = (Number) entityManager
                 .createNativeQuery(
                     "SELECT COUNT(*) FROM UGFAB.T912NIVEAU " +
@@ -141,7 +182,7 @@ public class EnlogementServiceImpl implements EnlogementService {
                 throw new BusinessException(
                     "Niveau introuvable : " + niveau);
             }
-        } // ← accolade fermante du else
+        }
 
         // ── Étape 5 — Compter bobines sur position
         Integer nbBobines = 0;
@@ -161,22 +202,60 @@ public class EnlogementServiceImpl implements EnlogementService {
             return response;
         }
 
-        // ── Étape 7 — Règle R5 : invalider avant forçage
+        // ── Étape 7 — Règle R9 : invalider avant forçage
         if (nbBobines > 0 && request.isForcer()) {
             coilRepository.updatePositionInvalide(
                 request.getParcDestination(),
                 request.getLogeDestination(),
                 position, niveau);
-            MyTools.logInfo("R5 — Position invalidée avant forçage");
+            MyTools.logInfo("R9 — Position invalidée avant forçage");
         }
 
-        // ── Étape 8 — Règle R4 : choisir le bon UPDATE
+        // ── Sauvegarder position FROM avant enlogement
+        String parcFrom = coil.getYard() != null ?
+            coil.getYard().getYard() : null;
+        String logeFrom = coil.getLoge() != null ?
+            coil.getLoge().getId().getRow() : null;
+        String pileFrom = coil.getCpile();
+        Integer litFrom = coil.getClit() != null ?
+            Integer.parseInt(coil.getClit()) : null;
+
+        // ── Étape 8 — Règle R10 : choisir le bon UPDATE
         effectuerEnlogement(coil,
             request.getParcDestination(),
             request.getLogeDestination(),
             position, niveau);
+        
+     // ── INSERT dans T_GUN_LAL_MOV_LOG
+        
+        try {
+            MovLog log = new MovLog();
+            log.setCoilSq(coil.getCoilSq());
+            log.setTypeId(coil.getTypeId());
+            log.setCoilId(coil.getCoilId());
+            log.setCoupeId(coil.getCoupeId());
+            log.setParcFrom(parcFrom);
+            log.setLogeFrom(logeFrom);
+            log.setPileFrom(pileFrom);
+            log.setLitFrom(litFrom);
+            log.setParcTo(request.getParcDestination());
+            log.setLogeTo(request.getLogeDestination());
+            
+            //  Ajouter pileTo et litTo
+            
+            log.setPileTo(position);
+            log.setLitTo(niveau != null ? Integer.parseInt(niveau) : null);
+            log.setInsertNm("SCAN_ENLOGEMENT");
+            log.setInsertDt(LocalDateTime.now());
+            log.setUpdateNm("SCAN_ENLOGEMENT");
+            log.setUpdateDt(LocalDateTime.now());
+            log.setFonctionNm("GUN_LAL_ENLOGEMENT");
+            movLogRepository.save(log);
+        } catch (Exception e) {
+            MyTools.logError("MovLog — Erreur INSERT", e);
+        }
 
-        // ── Étape 9 — DELETE T068COILS_INCONNU
+        // ── Étape 9 — Règle R11 : DELETE T068COILS_INCONNU
         if (!parc1D && position != null && niveau != null) {
             coilInconnuRepository.deleteByPosition(
                 request.getParcDestination(),
@@ -184,16 +263,18 @@ public class EnlogementServiceImpl implements EnlogementService {
                 position, niveau);
         }
 
-        // ── Règle R6 : mission DK1/DK2
+        // ── Règle R12 : mission DK1/DK2
         if ("DK1".equals(request.getParcDestination()) ||
             "DK2".equals(request.getParcDestination())) {
-            gererMission(coil, request.getParcDestination(),
+            gererMission(coil,
+                request.getParcDestination(),
+                request.getLogeDestination(),
                 position, niveau);
         }
 
-        // ── INSERT traçabilité TTQ004
+        // ── Règle R13 : INSERT traçabilité TTQ004
         transactionRepository.insertMatmod(request.getCoilSq());
-        MyTools.logInfo("Traçabilité insérée pour coilSq : " +
+        MyTools.logInfo("R13 — Traçabilité insérée pour coilSq : " +
             request.getCoilSq());
 
         // ── Réponse succès
@@ -208,7 +289,7 @@ public class EnlogementServiceImpl implements EnlogementService {
         return response;
     }
 
-    // ── Règle R2 ──────────────────────────────────
+    // ── Règle R4 — Conditionnement ────────────────
     private void gererConditionnement(Coil coil,
             EnlogementRequestDTO request) {
 
@@ -229,15 +310,22 @@ public class EnlogementServiceImpl implements EnlogementService {
                     request.getFeuillardRad(),
                     request.getFeuillardCir());
                 gererAgid(coil, cond, true);
+                transactionRepository.insertMatmod(coil.getCoilSq());
             } else {
                 coilRepository.updateEmballageAvecDate(
                     coil.getCoilSq(), request.getEmballageCd(),
                     request.getProtectionRive(),
                     request.getFeuillardRad(),
                     request.getFeuillardCir());
-                gererAgid(coil, cond, false);
+                String cagid = gererAgidAvecRetour(coil, false);
+                if (cagid != null && !cagid.isEmpty()) {
+                    transactionRepository.insertMatprod(
+                        coil.getCoilSq(), "E|" + cagid + "|N");
+                }
+                transactionRepository.insertMatmod(coil.getCoilSq());
             }
-            MyTools.logInfo("R2 — Conditionnement O appliqué");
+            MyTools.logInfo("R4 — Conditionnement O appliqué");
+
         } else if ("N".equals(cond)) {
             if (coil.getPackagingDt() != null) {
                 coilRepository.updateEmballageNullDate(
@@ -246,12 +334,13 @@ public class EnlogementServiceImpl implements EnlogementService {
                     request.getFeuillardRad(),
                     request.getFeuillardCir());
                 gererAgid(coil, cond, true);
+                transactionRepository.insertMatalloc(coil.getCoilSq());
             }
-            MyTools.logInfo("R2 — Déconditionnement N appliqué");
+            MyTools.logInfo("R4 — Déconditionnement N appliqué");
         }
     }
 
-    // ── Règle R4 ──────────────────────────────────
+    // ── Règle R10 — Enlogement ────────────────────
     private void effectuerEnlogement(Coil coil, String parc,
             String loge, String position, String niveau) {
         try {
@@ -272,24 +361,25 @@ public class EnlogementServiceImpl implements EnlogementService {
                 coilRepository.updatePosition(
                     coil.getCoilSq(), parc, loge,
                     position, niveau);
-                MyTools.logInfo("R4 — updatePosition (site LAL)");
+                MyTools.logInfo("R10 — updatePosition (site LAL)");
             } else {
                 coilRepository.updatePositionResetShip(
                     coil.getCoilSq(), parc, loge,
                     position, niveau);
-                MyTools.logInfo("R4 — updatePositionResetShip");
+                MyTools.logInfo("R10 — updatePositionResetShip");
             }
         } catch (Exception e) {
-            MyTools.logError("R4 — fct_get_site erreur", e);
+            MyTools.logError("R10 — fct_get_site erreur", e);
             coilRepository.updatePosition(
                 coil.getCoilSq(), parc, loge,
                 position, niveau);
         }
     }
 
-    // ── Règle R6 ──────────────────────────────────
+    // ── Règle R12 — Mission DK1/DK2 ───────────────
     private void gererMission(Coil coil,
             String parcDestination,
+            String logeDestination,
             String position, String niveau) {
 
         Optional<CoilMission> missionOpt =
@@ -310,17 +400,23 @@ public class EnlogementServiceImpl implements EnlogementService {
             coilMissionRepository.cloturerMission(
                 coilMission.getId().getMissionSq(),
                 coil.getCoilSq(),
-                coilMission.getId().getCoilSq().toString(),
+                logeDestination,
                 niveau != null ? niveau : "",
                 position != null ? position : "");
-            MyTools.logInfo("R6 — Mission clôturée : " +
+            MyTools.logInfo("R12 — Mission clôturée : " +
                 coilMission.getId().getMissionSq());
         }
     }
 
-    // ── Règle R7 ──────────────────────────────────
+    // ── AGID sans retour ──────────────────────────
     private void gererAgid(Coil coil,
             String conditionnement, boolean etaitEmballe) {
+        gererAgidAvecRetour(coil, etaitEmballe);
+    }
+
+    // ── AGID avec retour du cagid ─────────────────
+    private String gererAgidAvecRetour(Coil coil,
+            boolean etaitEmballe) {
         try {
             StoredProcedureQuery query;
             if (!etaitEmballe) {
@@ -349,12 +445,11 @@ public class EnlogementServiceImpl implements EnlogementService {
             String vError = (String) query
                 .getOutputParameterValue(4);
 
-            MyTools.logInfo("R7 — AGID retourné : " + cagid);
+            MyTools.logInfo("AGID retourné : " + cagid);
 
             if (vError != null && !vError.isEmpty()) {
-                MyTools.logError(
-                    "R7 — Erreur AGID : " + vError, null);
-                return;
+                MyTools.logError("Erreur AGID : " + vError, null);
+                return null;
             }
 
             if (cagid != null && !cagid.isEmpty()) {
@@ -368,12 +463,13 @@ public class EnlogementServiceImpl implements EnlogementService {
                     .setParameter("cagid", cagid)
                     .setParameter("coilSq", coil.getCoilSq())
                     .executeUpdate();
-                MyTools.logInfo(
-                    "R7 — CAGID mis à jour : " + cagid);
+                MyTools.logInfo("CAGID mis à jour : " + cagid);
             }
+            return cagid;
+
         } catch (Exception e) {
-            MyTools.logError(
-                "R7 — Erreur procédure AGID", e);
+            MyTools.logError("Erreur procédure AGID", e);
+            return null;
         }
     }
 }

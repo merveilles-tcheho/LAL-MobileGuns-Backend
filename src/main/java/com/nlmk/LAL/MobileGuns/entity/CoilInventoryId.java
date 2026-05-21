@@ -16,5 +16,5 @@ public class CoilInventoryId implements Serializable {
 	private Integer coilSq;
 
 	@Column(name = "CNUMERO_INV")
-	private Integer numeroInv;
+	private String numeroInv;
 }

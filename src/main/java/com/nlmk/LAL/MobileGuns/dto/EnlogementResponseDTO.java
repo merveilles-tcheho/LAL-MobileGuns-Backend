@@ -5,21 +5,22 @@ import lombok.Data;
 @Data
 public class EnlogementResponseDTO {
 
-    // Résultat
+    // ── Résultat ──────────────────────────────────
     private boolean succes;
     private String message;
 
-    // Position occupée → forçage requis (R5)
+    // ── Position occupée → forçage requis (R5) ────
     private boolean positionOccupee;
-
-    // Infos bobines déjà présentes sur la position
-    
     private Integer nombreBobinesPresentes;
 
-    // Infos de la bobine enlogée
+    // ── Infos de la bobine enlogée ────────────────
     private String coilId;
     private String parcFinal;
     private String logeFinal;
     private String positionFinal;
     private String niveauFinal;
+
+    // ──  Alerte doublon d'étiquette ─────────────
+    private boolean dejaDeplace;
+    private String messageAlerte;
 }
