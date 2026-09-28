@@ -47,7 +47,7 @@ public class EnlogementController {
         if (!logs.isEmpty()) {
             MovLog dernierLog = logs.get(0);
 
-            // ✅ Convertir Integer en String pour lit
+            //  Convertir Integer en String pour lit
             String from = buildPosition(
                 dernierLog.getParcFrom(),
                 dernierLog.getLogeFrom(),
@@ -76,14 +76,14 @@ public class EnlogementController {
         return ResponseEntity.ok(response);
     }
 
-    // ✅ Construire la position complète selon le parc
+    // Construire la position complète selon le parc
     private String buildPosition(String parc, String loge,
                                   String pile, String lit) {
         if (parc == null) return "";
         StringBuilder pos = new StringBuilder(parc);
         if (loge != null) pos.append(".").append(loge);
 
-        // ✅ Si DK1, DK2 ou DKP — ajouter pile et lit
+        // Si DK1, DK2 ou DKP — ajouter pile et lit
         if (PARCS_DK.contains(parc)) {
             if (pile != null && !pile.isEmpty()) {
                 pos.append(".").append(pile);

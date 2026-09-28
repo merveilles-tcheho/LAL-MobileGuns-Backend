@@ -74,7 +74,7 @@ public class InventoryController {
             return ResponseEntity.ok(null);
         }
 
-        // ✅ Compter total bobines de la loge
+        // Compter total bobines de la loge
         List<Object> countRows = entityManager.createNativeQuery("""
             SELECT COUNT(*)
             FROM UGFAB.T071COILS_INVENTAIRE
@@ -90,7 +90,7 @@ public class InventoryController {
         int nbCoils = countRows.isEmpty() ? 0 :
             ((Number) countRows.get(0)).intValue();
 
-        // ✅ Récupérer coilId complet depuis T001COILS
+        //  Récupérer coilId complet depuis T001COILS
         Object[] row = rows.get(0);
         Integer coilSq = ((Number) row[0]).intValue();
 

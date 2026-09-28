@@ -91,7 +91,8 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/api/identification/**",
                     "/api/enlogement/**",
-                    "/api/inventory/**"
+                    "/api/inventory/**",
+                    "/api/dashboard/**" 
                 ).authenticated()
                 .anyRequest().authenticated()
             )
